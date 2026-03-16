@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.next/
+.turbo/
+*.env
+*.env.local
+.env.*.local
+*.log
+coverage/
+.DS_Store
+Thumbs.db
+
+# Storage data (never commit actual user files)
+data/
+storage/
+
+# Docker volumes
+postgres-data/
+valkey-data/

@@ -1,0 +1,28 @@
+{$DOMAIN:localhost} {
+    # API routes
+    handle /api/* {
+        reverse_proxy api:8787
+    }
+
+    # Public share link resolution
+    handle /s/* {
+        reverse_proxy api:8787
+    }
+
+    # Health check
+    handle /health {
+        reverse_proxy api:8787
+    }
+
+    # Everything else goes to the Next.js frontend
+    handle {
+        reverse_proxy web:3000
+    }
+
+    # Security headers
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Robots-Tag "noindex, nofollow"
+    }
+}
