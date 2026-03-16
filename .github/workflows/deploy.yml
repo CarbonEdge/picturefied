@@ -69,10 +69,10 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          # Base path:
-          #   '/'             → username.github.io  (user/org site)
-          #   '/picturefied/' → username.github.io/picturefied  (project site)
-          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/' }}
+          # Base path — override via vars.VITE_BASE_PATH if needed.
+          # Default: auto-derived from the repo name so project sites
+          # (username.github.io/reponame) just work without any config.
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
 
           # Google OAuth Client ID (Settings → Variables → Actions)
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}

@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Picturefied</title>
+    <script>
+      // GitHub Pages SPA redirect: any 404 gets sent back to index.html.
+      // The path is preserved in sessionStorage and restored by index.html
+      // so deep links and refreshes work correctly.
+      sessionStorage.setItem('ghpages_redirect', location.href)
+      location.replace(location.origin + location.pathname.replace(/\/[^/]*$/, '') + '/')
+    </script>
+  </head>
+</html>
