@@ -125,8 +125,10 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install worker dependencies
+      # Install from root — workspace covers the worker package too
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: ${{ github.workspace }}
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3

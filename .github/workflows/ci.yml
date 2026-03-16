@@ -22,19 +22,16 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Single install at root — covers both frontend and worker (workspace)
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
+      - name: Typecheck frontend
         run: pnpm typecheck
 
-      - name: Test (frontend)
+      - name: Test frontend
         run: pnpm test
 
-      - name: Install worker dependencies
-        run: pnpm install --frozen-lockfile
-        working-directory: worker
-
-      - name: Typecheck (worker)
+      - name: Typecheck worker
         run: pnpm typecheck
         working-directory: worker
