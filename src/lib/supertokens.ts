@@ -24,16 +24,15 @@ export function initSupertokens() {
       apiBasePath: '/auth',
       websiteBasePath: '/auth',
     },
+    getRedirectionURL: async (context) => {
+      if (context.action === 'SUCCESS' && context.newSessionCreated) {
+        // After login/register, go to the Drive connection + passphrase flow
+        return '/#/setup'
+      }
+      return undefined
+    },
     recipeList: [
-      EmailPassword.init({
-        getRedirectionURL: async (context) => {
-          if (context.action === 'SUCCESS' && context.newSessionCreated) {
-            // After login/register, go to the Drive connection + passphrase flow
-            return '/#/setup'
-          }
-          return undefined
-        },
-      }),
+      EmailPassword.init(),
       Session.init({
         tokenTransferMethod: 'header', // better for cross-origin (Pages → Workers)
       }),
