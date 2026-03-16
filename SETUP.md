@@ -98,12 +98,21 @@ wrangler login
 # Opens a browser — authorise Wrangler to access your Cloudflare account
 ```
 
-### 4c — Create the worker
+### 4c — Install dependencies and test the worker build
+
+Run this from the **project root** (not from inside `worker/`). The workspace
+installs everything together including the worker's deps:
 
 ```bash
+# From project root:
+pnpm install
+
+# Then test the worker bundles without deploying:
 cd worker
-wrangler deploy --dry-run   # test locally first
+wrangler deploy --dry-run
 ```
+
+You should see `Total Upload: ~2000 KiB` and `--dry-run: exiting now.` — that means it's ready.
 
 This creates a worker named `picturefied-api` (defined in `worker/wrangler.toml`).
 
