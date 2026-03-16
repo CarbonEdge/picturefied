@@ -1,0 +1,19 @@
+name = "picturefied-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Non-secret config — secrets (SUPERTOKENS_API_KEY, JWT_SECRET) are set
+# via `wrangler secret put` and never appear in this file
+SUPERTOKENS_CONNECTION_URI = "https://st-dev-e45f55f1-2166-11f1-a2c6-1b39c58845b4.aws.supertokens.io"
+APP_NAME = "Picturefied"
+
+# Update these after deployment:
+# API_DOMAIN   = the workers.dev URL of this worker
+# WEBSITE_DOMAIN = your GitHub Pages URL
+API_DOMAIN = "http://localhost:8787"
+WEBSITE_DOMAIN = "http://localhost:5173"
+
+[dev]
+port = 8787

@@ -1,0 +1,22 @@
+
+    {
+        "name": "output-c7bea5a7ea68a0042d0a5504b370d82ea08aa20f3fa0e6e9957f69b3a36dd5bf",
+        "version": "0.0.1",
+        "description": "",
+        "main": "index.js",
+        "scripts": {
+            "start:frontend": "cd frontend && npm run start",
+            "start:frontend-live-demo-app": "cd frontend && npx serve -s build",
+            "start:backend": "cd backend && npm run start",
+            "start:backend-live-demo-app": "cd backend && ./startLiveDemoApp.sh",
+            "start": "npm-run-all --parallel start:frontend start:backend",
+            "start-live-demo-app": "npx npm-run-all --parallel start:frontend-live-demo-app start:backend-live-demo-app"
+        },
+        "keywords": [],
+        "author": "",
+        "license": "ISC",
+        "dependencies": {
+            "npm-run-all": "^4.1.5"
+        }
+    }
+    

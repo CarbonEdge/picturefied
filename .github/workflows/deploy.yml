@@ -1,0 +1,141 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Frontend deploy needs these permissions for GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy runs at a time; cancels any in-flight deploy
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  # ─── 1. Tests ─────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck frontend
+        run: pnpm typecheck
+
+      - name: Test frontend
+        run: pnpm test
+
+      - name: Install worker dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: worker
+
+      - name: Typecheck worker
+        run: pnpm typecheck
+        working-directory: worker
+
+  # ─── 2. Build frontend ────────────────────────────────────────────────────────
+  build-frontend:
+    name: Build frontend
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          # Base path:
+          #   '/'             → username.github.io  (user/org site)
+          #   '/picturefied/' → username.github.io/picturefied  (project site)
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/' }}
+
+          # Google OAuth Client ID (Settings → Variables → Actions)
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+
+          # Cloudflare Worker URL for the auth backend
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+
+          # Your GitHub Pages URL — used by SuperTokens for cookie domain
+          VITE_PUBLIC_URL: ${{ vars.VITE_PUBLIC_URL }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  # ─── 3. Deploy frontend → GitHub Pages ────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend → GitHub Pages
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ─── 4. Deploy backend → Cloudflare Workers ───────────────────────────────────
+  deploy-worker:
+    name: Deploy worker → Cloudflare
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install worker dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+        env:
+          # These become vars.* in wrangler.toml / accessed via env bindings
+          SUPERTOKENS_CONNECTION_URI: https://st-dev-e45f55f1-2166-11f1-a2c6-1b39c58845b4.aws.supertokens.io
+          # SUPERTOKENS_API_KEY is set as a Wrangler secret (wrangler secret put SUPERTOKENS_API_KEY)
+          # and does NOT go here — secrets are never in workflow files
