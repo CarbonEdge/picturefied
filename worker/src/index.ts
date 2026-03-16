@@ -7,14 +7,20 @@
  *
  * Routes under /auth/* are handled by SuperTokens.
  * The /health endpoint is public.
- * The /sessioninfo endpoint requires a valid session.
+ * The /session endpoint requires a valid session.
  */
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import supertokens from 'supertokens-node'
 import Session from 'supertokens-node/recipe/session'
 import EmailPassword from 'supertokens-node/recipe/emailpassword'
-import { middleware as stMiddleware, errorHandler as stErrorHandler } from 'supertokens-node/framework/custom'
+import {
+  middleware as stMiddleware,
+  errorHandler as stErrorHandler,
+  PreParsedRequest,
+  CollectingResponse,
+} from 'supertokens-node/framework/custom'
+import type { HTTPMethod } from 'supertokens-node/types'
 import { verifySession } from 'supertokens-node/recipe/session/framework/custom'
 
 export interface Env {
@@ -58,6 +64,70 @@ function ensureInit(env: Env) {
   initialised = true
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Wrap a Hono context's request as a SuperTokens PreParsedRequest. */
+async function toSTParsedRequest(c: Context): Promise<PreParsedRequest> {
+  const url = new URL(c.req.url)
+  const cookies: Record<string, string> = {}
+  for (const part of (c.req.header('cookie') ?? '').split(';')) {
+    const idx = part.indexOf('=')
+    if (idx === -1) continue
+    cookies[decodeURIComponent(part.slice(0, idx).trim())] = decodeURIComponent(
+      part.slice(idx + 1).trim(),
+    )
+  }
+
+  const contentType = c.req.header('content-type') ?? ''
+  const getJSONBody = async () => {
+    if (contentType.includes('application/json')) return c.req.json()
+    return {}
+  }
+  const getFormBody = async () => {
+    if (contentType.includes('application/x-www-form-urlencoded')) return c.req.parseBody()
+    return {}
+  }
+
+  return new PreParsedRequest({
+    method: c.req.method.toLowerCase() as HTTPMethod,
+    url: url.toString(),
+    headers: c.req.raw.headers,
+    cookies,
+    query: Object.fromEntries(url.searchParams),
+    getJSONBody,
+    getFormBody,
+  })
+}
+
+/**
+ * Convert a CollectingResponse to a web Response, including cookies.
+ * CollectingResponse.cookies is an array of CookieInfo; each must become
+ * a separate Set-Cookie header (Headers.append supports duplicates).
+ */
+function toWebResponse(stRes: CollectingResponse): Response {
+  const headers = new Headers(stRes.headers)
+
+  for (const cookie of stRes.cookies) {
+    const parts = [
+      `${encodeURIComponent(cookie.key)}=${encodeURIComponent(cookie.value)}`,
+      `Path=${cookie.path}`,
+      `SameSite=${cookie.sameSite}`,
+    ]
+    if (cookie.domain) parts.push(`Domain=${cookie.domain}`)
+    if (cookie.secure) parts.push('Secure')
+    if (cookie.httpOnly) parts.push('HttpOnly')
+    if (cookie.expires) parts.push(`Expires=${new Date(cookie.expires).toUTCString()}`)
+    headers.append('Set-Cookie', parts.join('; '))
+  }
+
+  return new Response(stRes.body ?? null, {
+    status: stRes.statusCode,
+    headers,
+  })
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
 const app = new Hono<{ Bindings: Env }>()
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
@@ -74,44 +144,64 @@ app.use('*', async (c, next) => {
 })
 
 // ─── SuperTokens auth routes (/auth/*) ───────────────────────────────────────
-// The custom framework middleware takes the raw Request and returns a Response
-// when SuperTokens handles the route, or undefined to fall through.
-app.all('/auth/*', async (c) => {
+app.all('/auth/*', async (c): Promise<Response> => {
   ensureInit(c.env)
-  const handler = stMiddleware()
+  const stReq = await toSTParsedRequest(c)
+  const stRes = new CollectingResponse()
 
-  // Give SuperTokens the raw Fetch API Request; it returns a raw Response
-  const res = await handler(c.req.raw)
-  if (res !== undefined) return res
+  const result = await stMiddleware()(stReq, stRes)
 
-  // Not handled by SuperTokens — shouldn't happen under /auth/* but be safe
-  return c.json({ error: 'Route not handled' }, 404)
+  if (result.error) {
+    await stErrorHandler()(result.error, stReq, stRes, (_err: Error) => {
+      stRes.setStatusCode(500)
+      stRes.sendJSONResponse({ error: 'Internal server error' })
+    })
+    return toWebResponse(stRes)
+  }
+
+  if (result.handled) {
+    return toWebResponse(stRes)
+  }
+
+  return new Response(JSON.stringify({ error: 'Route not handled' }), {
+    status: 404,
+    headers: { 'content-type': 'application/json' },
+  })
 })
 
 // ─── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', (c) => c.json({ ok: true }))
 
-// ─── Protected example route ─────────────────────────────────────────────────
-// Returns the current session info — useful for testing auth works end-to-end.
-app.get('/session', async (c) => {
+// ─── Protected: session info ──────────────────────────────────────────────────
+// Returns the current session — useful for testing auth works end-to-end.
+app.get('/session', async (c): Promise<Response> => {
   ensureInit(c.env)
-  const sessionHandler = verifySession()
+  const stReq = await toSTParsedRequest(c)
+  const stRes = new CollectingResponse()
 
-  const res = await sessionHandler(c.req.raw, async (err, session) => {
-    if (err) {
-      return stErrorHandler()(err, c.req.raw)
-    }
-    return new Response(
-      JSON.stringify({
-        userId: session!.getUserId(),
-        handle: session!.getHandle(),
-        accessTokenPayload: session!.getAccessTokenPayload(),
-      }),
-      { headers: { 'content-type': 'application/json' } },
-    )
-  })
+  await verifySession()(stReq, stRes)
 
-  return res
+  // verifySession sets stReq.session on success, or writes an error response
+  if (stRes.statusCode !== 200) {
+    return toWebResponse(stRes)
+  }
+
+  const session = stReq.session
+  if (!session) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  return new Response(
+    JSON.stringify({
+      userId: session.getUserId(),
+      handle: session.getHandle(),
+      accessTokenPayload: session.getAccessTokenPayload(),
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  )
 })
 
 // ─── Catch-all ────────────────────────────────────────────────────────────────

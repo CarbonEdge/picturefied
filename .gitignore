@@ -12,7 +12,7 @@ Thumbs.db
 
 # Storage data (never commit actual user files)
 data/
-storage/
+packages/storage/
 
 # Docker volumes
 postgres-data/
