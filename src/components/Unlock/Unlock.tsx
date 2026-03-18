@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   deriveMasterSecret,
   decryptKeyBundle,
+  mnemonicToMasterSecret,
   fromBase64url,
   getSodium,
 } from '../../lib/crypto'
@@ -17,7 +18,7 @@ import { DriveAdapter, requestDriveToken } from '../../lib/storage/gdrive'
 import { IndexManager, deriveIndexKey } from '../../lib/index-manager'
 import { useKeystore } from '../../lib/keystore'
 
-type Step = 'drive' | 'passphrase' | 'unlocking'
+type Step = 'drive' | 'passphrase' | 'unlocking' | 'recovery' | 'recovering'
 
 interface StoredConfig {
   version: number
@@ -29,8 +30,9 @@ export default function Unlock() {
   const [step, setStep]       = useState<Step>('drive')
   const [drive, setDrive]     = useState<DriveAdapter | null>(null)
   const [config, setConfig]   = useState<StoredConfig | null>(null)
-  const [passphrase, setPass] = useState('')
-  const [error, setError]     = useState<string | null>(null)
+  const [passphrase, setPass]   = useState('')
+  const [recoveryWords, setRecoveryWords] = useState('')
+  const [error, setError]       = useState<string | null>(null)
   const [busy, setBusy]       = useState(false)
 
   const setSession = useKeystore((s) => s.setSession)
@@ -93,6 +95,38 @@ export default function Unlock() {
     }
   }
 
+  async function recoverWithPhrase() {
+    if (!drive || !config) return
+    const words = recoveryWords.trim().toLowerCase().split(/\s+/)
+    if (words.length !== 24) { setError('Enter all 24 recovery words.'); return }
+
+    setError(null)
+    setStep('recovering')
+    setBusy(true)
+
+    try {
+      const mnemonic     = words.join(' ')
+      const masterSecret = await mnemonicToMasterSecret(mnemonic)
+      const encBundle    = fromBase64url(config.encryptedKeyBundle)
+      const keys         = await decryptKeyBundle(encBundle, masterSecret)
+
+      const indexKey = await deriveIndexKey(masterSecret)
+      masterSecret.fill(0)
+
+      const indexMgr = new IndexManager(drive, indexKey)
+      await indexMgr.load()
+      await indexMgr.pruneExpiredShares()
+
+      setSession(keys, drive, indexMgr)
+      navigate('/gallery', { replace: true })
+    } catch (e) {
+      setError('Invalid recovery phrase or corrupted config.')
+      setStep('recovery')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (step === 'drive') {
     return (
       <div className="center-page">
@@ -138,6 +172,44 @@ export default function Unlock() {
             <button className="btn-primary" onClick={unlock} disabled={step === 'unlocking'}>
               {step === 'unlocking' ? 'Decrypting keys…' : 'Unlock'}
             </button>
+            <p style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
+              <a href="#" onClick={(e) => { e.preventDefault(); setError(null); setStep('recovery') }}>
+                Forgot passphrase? Use recovery phrase
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'recovery' || step === 'recovering') {
+    return (
+      <div className="center-page">
+        <div className="card" style={{ maxWidth: 440, width: '100%' }}>
+          <h2 style={{ marginBottom: '0.5rem' }}>Recovery phrase</h2>
+          <p className="muted" style={{ marginBottom: '1.5rem', fontSize: '0.875rem' }}>
+            Enter your 24 recovery words separated by spaces.
+          </p>
+          <div className="form-stack">
+            <textarea
+              value={recoveryWords}
+              onChange={(e) => setRecoveryWords(e.target.value)}
+              placeholder="word1 word2 word3 … word24"
+              rows={4}
+              disabled={step === 'recovering'}
+              autoFocus
+              style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }}
+            />
+            {error && <p className="error">{error}</p>}
+            <button className="btn-primary" onClick={recoverWithPhrase} disabled={step === 'recovering'}>
+              {step === 'recovering' ? 'Recovering…' : 'Recover account'}
+            </button>
+            <p style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
+              <a href="#" onClick={(e) => { e.preventDefault(); setError(null); setStep('passphrase') }}>
+                Back to passphrase
+              </a>
+            </p>
           </div>
         </div>
       </div>
