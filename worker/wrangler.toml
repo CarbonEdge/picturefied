@@ -4,16 +4,28 @@ compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# Non-secret config — secrets (SUPERTOKENS_API_KEY, JWT_SECRET) are set
-# via `wrangler secret put` and never appear in this file
-SUPERTOKENS_CONNECTION_URI = "https://st-dev-e45f55f1-2166-11f1-a2c6-1b39c58845b4.aws.supertokens.io"
+# Non-secret config — secrets (JWT_SECRET) set via `wrangler secret put`
 APP_NAME = "Picturefied"
-
-# Update these after deployment:
-# API_DOMAIN   = the workers.dev URL of this worker
-# WEBSITE_DOMAIN = your GitHub Pages URL
 API_DOMAIN = "http://localhost:8787"
 WEBSITE_DOMAIN = "http://localhost:5173"
+GOOGLE_CLIENT_ID = ""  # also set as GitHub Actions variable
+
+[[d1_databases]]
+binding = "DB"
+database_name = "picturefied"
+database_id = ""  # set after: wrangler d1 create picturefied
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = ""  # set after: wrangler kv namespace create SESSIONS
+
+[[kv_namespaces]]
+binding = "TAG_INDEX"
+id = ""  # set after: wrangler kv namespace create TAG_INDEX
+
+[[kv_namespaces]]
+binding = "FEED_CACHE"
+id = ""  # set after: wrangler kv namespace create FEED_CACHE
 
 [dev]
 port = 8787

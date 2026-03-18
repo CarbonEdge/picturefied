@@ -1,0 +1,25 @@
+1.breeze
+2.rich
+3.throw
+4.true
+5.call
+6.away
+7.decorate
+8.attitude
+9.payment
+10.cabbage
+11.mandate
+12.faculty
+13.giraffe
+14.finish
+15.wrap
+16.hip
+17.seminar
+18.decade
+19.illegal
+20.retire
+21.fabric
+22.slice
+23.season
+24.junk
+I've written it down

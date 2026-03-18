@@ -4,300 +4,166 @@ Everything you need to go from zero to a live Picturefied instance.
 
 ---
 
-## Architecture overview
+## Services required
 
-```
-Browser (GitHub Pages)
-  └── Vite + React SPA
-        ├── Google Drive API  ←── user's own Drive (OAuth, drive.file scope)
-        └── Cloudflare Worker ←── thin auth API (Hono + SuperTokens)
-                                      └── SuperTokens Cloud  ←── managed auth backend
-```
-
-| Service | What it does | Cost |
+| Service | Purpose | Cost |
 |---|---|---|
-| GitHub Pages | Hosts the frontend SPA | Free |
-| Cloudflare Workers | Hosts the auth API | Free (100k req/day) |
-| SuperTokens Cloud | Manages sessions, users | Free up to 5k MAU |
-| Google Drive | Stores encrypted photos | User's own storage |
+| Google Cloud | OAuth 2.0 + Drive API | Free tier |
+| Cloudflare Workers | Social API | Free tier |
+| Cloudflare D1 | Social graph (users, posts, follows) | Free tier |
+| Cloudflare KV | Sessions, tag indices, feed cache | Free tier |
+| GitHub Pages | Static frontend hosting | Free |
 
 ---
 
-## What you need before starting
+## Google Cloud
 
-- [ ] GitHub account
-- [ ] Google account (for OAuth client ID + Drive)
-- [ ] Cloudflare account — [cloudflare.com](https://cloudflare.com) (free)
-- [ ] SuperTokens account — you already have this (endpoint provided)
-- [ ] Node.js 22+ and pnpm 9+ installed locally
+### 1. Create a project
 
----
+1. [console.cloud.google.com](https://console.cloud.google.com) → New Project
 
-## Step 1 — Fork and clone
+### 2. Enable APIs
 
-```bash
-# Fork the repo on GitHub first, then:
-git clone https://github.com/YOUR_USERNAME/picturefied
-cd picturefied
-pnpm install
-```
+- **Google Drive API**
+- No additional APIs needed (Sign-In uses the OAuth endpoint directly)
 
----
+### 3. OAuth consent screen
 
-## Step 2 — Google OAuth Client ID
+- User type: External
+- Add scopes: `../auth/drive.file`
+- Add test users while in development
 
-The app uses Google Identity Services to let users connect their Google Drive.
+### 4. OAuth 2.0 Credentials
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a new project → name it **Picturefied**
-3. Left sidebar → **APIs & Services → Library**
-4. Search for **Google Drive API** → Enable it
-5. Left sidebar → **APIs & Services → Credentials**
-6. Click **+ Create Credentials → OAuth 2.0 Client ID**
-7. Application type: **Web application**
-8. Name: **Picturefied**
-9. Authorised JavaScript origins — add both:
-   ```
-   http://localhost:5173
-   https://YOUR_USERNAME.github.io
-   ```
-   _(replace YOUR_USERNAME with your GitHub username)_
-10. Click **Create** → copy the **Client ID** (looks like `123456-abc.apps.googleusercontent.com`)
+- Application type: **Web application**
+- Authorised JavaScript origins:
+  ```
+  http://localhost:5173
+  https://yourusername.github.io
+  ```
+- Copy the **Client ID** — used in both `.env` and `wrangler.toml`
 
 ---
 
-## Step 3 — SuperTokens API key
+## Cloudflare
 
-Your SuperTokens connection URI is already provisioned:
-```
-https://st-dev-e45f55f1-2166-11f1-a2c6-1b39c58845b4.aws.supertokens.io
-```
-
-You need the **API key** that goes with it:
-
-1. Go to [app.supertokens.com](https://app.supertokens.com)
-2. Open your dev instance → **Settings**
-3. Copy the **API Key** (a long random string)
-4. Keep it — you'll add it to GitHub Secrets shortly
-
----
-
-## Step 4 — Cloudflare Workers setup
-
-The auth backend runs as a Cloudflare Worker.
-
-### 4a — Create a Cloudflare account
-
-Go to [cloudflare.com](https://cloudflare.com) and sign up (free).
-
-### 4b — Install Wrangler
-
-```bash
-npm install -g wrangler
-wrangler login
-# Opens a browser — authorise Wrangler to access your Cloudflare account
-```
-
-### 4c — Install dependencies and test the worker build
-
-Run this from the **project root** (not from inside `worker/`). The workspace
-installs everything together including the worker's deps:
-
-```bash
-# From project root:
-pnpm install
-
-# Then test the worker bundles without deploying:
-cd worker
-wrangler deploy --dry-run
-```
-
-You should see `Total Upload: ~2000 KiB` and `--dry-run: exiting now.` — that means it's ready.
-
-This creates a worker named `picturefied-api` (defined in `worker/wrangler.toml`).
-
-Note the worker URL it outputs — it looks like:
-```
-https://picturefied-api.YOUR_SUBDOMAIN.workers.dev
-```
-
-You'll need this URL in step 5.
-
-### 4d — Set worker secrets
+### 1. D1 Database
 
 ```bash
 cd worker
-
-# SuperTokens API key (from step 3)
-wrangler secret put SUPERTOKENS_API_KEY
-# paste the key when prompted
-
-# JWT signing secret — generate one:
-# openssl rand -hex 32
-wrangler secret put JWT_SECRET
+npx wrangler d1 create picturefied
 ```
 
----
+Copy the `database_id` into `wrangler.toml`:
 
-## Step 5 — GitHub repository setup
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "picturefied"
+database_id = "YOUR_DATABASE_ID"
+```
 
-### 5a — Enable GitHub Pages
-
-1. Go to your forked repo on GitHub
-2. **Settings → Pages**
-3. Source: **GitHub Actions**
-4. Save
-
-### 5b — Add GitHub secrets
-
-Go to **Settings → Secrets and variables → Actions → Secrets → New repository secret**
-
-| Secret name | Value |
-|---|---|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token (see below) |
-| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
-
-**Getting your Cloudflare API token:**
-1. [dash.cloudflare.com](https://dash.cloudflare.com) → top right → **My Profile → API Tokens**
-2. **Create Token → Edit Cloudflare Workers** template
-3. Copy the token
-
-**Getting your Cloudflare account ID:**
-1. [dash.cloudflare.com](https://dash.cloudflare.com) → right sidebar shows **Account ID**
-
-### 5c — Add GitHub variables
-
-Go to **Settings → Secrets and variables → Actions → Variables → New repository variable**
-
-| Variable name | Value |
-|---|---|
-| `VITE_GOOGLE_CLIENT_ID` | Your Google OAuth Client ID (step 2) |
-| `VITE_BASE_PATH` | `/picturefied/` (or `/` if it's your user site) |
-| `VITE_API_URL` | `https://picturefied-api.YOUR_SUBDOMAIN.workers.dev` |
-| `VITE_PUBLIC_URL` | `https://YOUR_USERNAME.github.io` (or full URL with `/picturefied`) |
-
----
-
-## Step 6 — Local development
-
-Copy the example env file and fill in your values:
+Apply the schema:
 
 ```bash
-cp .env.example .env
+# Local dev
+npx wrangler d1 execute picturefied --local --file=src/db/schema.sql
+
+# Production
+npx wrangler d1 execute picturefied --remote --file=src/db/schema.sql
 ```
 
-Edit `.env`:
-
-```env
-# Google OAuth
-VITE_GOOGLE_CLIENT_ID=123456-abc.apps.googleusercontent.com
-
-# GitHub Pages base path (use / for local dev)
-VITE_BASE_PATH=/
-
-# Cloudflare Worker URL (use local dev URL below for local)
-VITE_API_URL=http://localhost:8787
-
-# SuperTokens (frontend needs the connection URI for the custom backend)
-VITE_SUPERTOKENS_CONNECTION_URI=https://st-dev-e45f55f1-2166-11f1-a2c6-1b39c58845b4.aws.supertokens.io
-```
-
-Start everything locally:
+### 2. KV Namespaces
 
 ```bash
-# Terminal 1 — frontend
-pnpm dev
-
-# Terminal 2 — worker (auth backend)
-cd worker
-wrangler dev
+npx wrangler kv namespace create SESSIONS
+npx wrangler kv namespace create TAG_INDEX
+npx wrangler kv namespace create FEED_CACHE
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Copy the IDs into `wrangler.toml`:
 
----
+```toml
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "YOUR_SESSIONS_ID"
 
-## Step 7 — Deploy
+[[kv_namespaces]]
+binding = "TAG_INDEX"
+id = "YOUR_TAG_INDEX_ID"
 
-Push to `main` — the GitHub Actions workflows do everything:
+[[kv_namespaces]]
+binding = "FEED_CACHE"
+id = "YOUR_FEED_CACHE_ID"
+```
+
+### 3. Secrets
 
 ```bash
-git add .
-git commit -m "Initial deployment"
-git push origin main
+npx wrangler secret put JWT_SECRET
+# Enter any random 32+ char string (used for HMAC API key hashing)
 ```
 
-GitHub Actions will:
-1. Run all tests
-2. Build the frontend (`pnpm build`)
-3. Deploy frontend to GitHub Pages
-4. Deploy the auth worker to Cloudflare Workers
+### 4. Worker vars
 
-Watch the progress under **Actions** tab on GitHub. First deploy takes ~3 minutes.
+In `wrangler.toml`:
 
----
+```toml
+[vars]
+APP_NAME = "Picturefied"
+API_DOMAIN = "https://picturefied-api.YOUR_SUBDOMAIN.workers.dev"
+WEBSITE_DOMAIN = "https://yourusername.github.io"
+GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"
+```
 
-## Step 8 — Verify
+### 5. Deploy
 
-Once deployed:
-
-1. Open `https://YOUR_USERNAME.github.io/picturefied/`
-2. Click **Get started** → Google OAuth popup should appear
-3. Grant Drive access → passphrase setup screen
-4. Choose a passphrase → write down the 24-word recovery phrase
-5. Drag and drop a photo → it encrypts and uploads to your Drive
-6. Click the photo → **Share** → create a share link
-7. Open the share link in a private window → you should see the photo without logging in
+```bash
+cd worker && pnpm deploy
+```
 
 ---
 
-## GitHub Secrets / Variables reference
+## GitHub Pages (frontend)
 
-| Name | Type | Where used |
-|---|---|---|
-| `CLOUDFLARE_API_TOKEN` | Secret | Wrangler deploy |
-| `CLOUDFLARE_ACCOUNT_ID` | Secret | Wrangler deploy |
-| `VITE_GOOGLE_CLIENT_ID` | Variable | Frontend build |
-| `VITE_BASE_PATH` | Variable | Frontend build |
-| `VITE_API_URL` | Variable | Frontend build |
-| `VITE_PUBLIC_URL` | Variable | Frontend build |
+### 1. Enable GitHub Pages
 
-**Worker secrets** (set via `wrangler secret put`, not GitHub):
+Repository → Settings → Pages → Source: **GitHub Actions**
 
-| Name | Value |
+### 2. Set repository variables
+
+Settings → Secrets and variables → Actions → Variables:
+
+| Variable | Value |
 |---|---|
-| `SUPERTOKENS_API_KEY` | Your SuperTokens instance API key |
-| `JWT_SECRET` | Random hex string (`openssl rand -hex 32`) |
+| `VITE_GOOGLE_CLIENT_ID` | Your Google Client ID |
+| `VITE_API_URL` | Your worker URL |
+| `VITE_BASE_PATH` | `/picturefied/` (or `/` for user sites) |
+
+### 3. Deploy
+
+Push to `main`. The `deploy.yml` workflow builds and deploys to Pages.
 
 ---
 
-## Troubleshooting
+## Local dev checklist
 
-**OAuth popup blocked**
-→ Allow popups for your GitHub Pages domain in browser settings.
-
-**`VITE_GOOGLE_CLIENT_ID is not set`**
-→ Check that the GitHub variable is set and the workflow is using it.
-
-**Worker returns 500**
-→ Run `wrangler tail` to stream live logs from your deployed worker.
-
-**`SUPERTOKENS_API_KEY is not set` in worker logs**
-→ Run `wrangler secret put SUPERTOKENS_API_KEY` — secrets set locally don't auto-deploy.
-
-**Photos don't appear after upload**
-→ Check browser console. Usually a Drive permission or wrong `VITE_API_URL`.
-
-**GitHub Pages shows 404 on refresh**
-→ Make sure `VITE_BASE_PATH` matches your Pages URL path exactly (trailing slash matters).
+- [ ] `.env` has `VITE_GOOGLE_CLIENT_ID` and `VITE_API_URL=http://localhost:8787`
+- [ ] `wrangler.toml` has D1 `database_id` and KV `id` values filled in
+- [ ] `wrangler.toml` has `GOOGLE_CLIENT_ID` set
+- [ ] `JWT_SECRET` secret is set (any value works locally, wrangler uses it via dev)
+- [ ] Schema applied: `npx wrangler d1 execute picturefied --local --file=src/db/schema.sql`
+- [ ] Worker running: `cd worker && pnpm dev`
+- [ ] Frontend running: `pnpm dev`
 
 ---
 
 ## Production checklist
 
-- [ ] `VITE_BASE_PATH` set to `/picturefied/` (not `/`)
-- [ ] Google OAuth origins include your production Pages URL
-- [ ] All GitHub secrets and variables are set
-- [ ] Worker secrets set via `wrangler secret put`
-- [ ] SuperTokens instance switched from dev → prod (app.supertokens.com)
-- [ ] Recovery phrase written down before first use
+- [ ] D1 schema applied to remote database
+- [ ] All KV namespace IDs set in `wrangler.toml`
+- [ ] `JWT_SECRET` set via `wrangler secret put`
+- [ ] Worker deployed: `cd worker && pnpm deploy`
+- [ ] `API_DOMAIN` and `WEBSITE_DOMAIN` updated in `wrangler.toml`
+- [ ] GitHub Actions variables set
+- [ ] Frontend deployed via push to `main`

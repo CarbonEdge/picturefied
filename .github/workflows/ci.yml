@@ -33,3 +33,7 @@ jobs:
       - name: Typecheck worker
         run: pnpm typecheck
         working-directory: worker
+
+      - name: Test worker
+        run: pnpm test
+        working-directory: worker

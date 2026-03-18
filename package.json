@@ -20,7 +20,6 @@
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.28.0",
-    "supertokens-auth-react": "^0.47.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

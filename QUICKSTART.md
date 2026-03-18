@@ -4,66 +4,64 @@ Get Picturefied running locally in under 5 minutes.
 
 ---
 
-## How it works
-
-Picturefied is a **static web app** (no backend). All your photos are:
-
-1. **Encrypted on your device** before leaving your browser
-2. **Stored in your own Google Drive** — Picturefied never touches your files
-3. **Decryptable only with your passphrase** — we can't read them even if we wanted to
-
-The only "server" is GitHub Pages serving the HTML/JS. No databases, no auth services, no infrastructure costs.
-
----
-
 ## Prerequisites
 
-- [Node.js 22+](https://nodejs.org)
-- [pnpm 9+](https://pnpm.io/installation) — `npm install -g pnpm`
-- A Google account (for Google Drive storage)
-- A Google Cloud project with the Drive API enabled (see below)
+- Node.js ≥ 22, pnpm ≥ 9
+- A Google Cloud project (free)
+- A Cloudflare account (free)
 
 ---
 
-## 1. Set up Google OAuth
+## 1. Google Cloud setup
 
-You need a Google OAuth client ID so the app can request Drive access.
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a new project (or use an existing one)
-3. Enable the **Google Drive API**
-4. Go to **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
-5. Application type: **Web application**
-6. Authorised JavaScript origins: `http://localhost:5173` (for local dev)
-   - For production add your GitHub Pages URL, e.g. `https://yourusername.github.io`
-7. Copy the **Client ID** — you'll need it in step 2
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create an **OAuth 2.0 Client ID** → Web application
+3. Add authorised JavaScript origins:
+   - `http://localhost:5173` (local dev)
+   - `https://yourusername.github.io` (production)
+4. Enable the **Google Drive API** for the same project
+5. Copy the **Client ID**
 
 ---
 
-## 2. Configure environment
+## 2. Clone and configure
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-
-```env
-# Your Google OAuth Client ID from step 1
-VITE_GOOGLE_CLIENT_ID=123456789-abc.apps.googleusercontent.com
-
-# Base path for GitHub Pages — '/' for user sites, '/picturefied/' for project sites
-VITE_BASE_PATH=/
-```
-
----
-
-## 3. Install dependencies
-
-```bash
-git clone https://github.com/yourusername/picturefied
+git clone https://github.com/yourusername/picturefied.git
 cd picturefied
 pnpm install
+
+cp .env.example .env
+# Edit .env — set VITE_GOOGLE_CLIENT_ID to your Client ID
+```
+
+---
+
+## 3. Cloudflare Worker setup
+
+```bash
+cd worker
+
+# Login
+npx wrangler login
+
+# Create D1 database
+npx wrangler d1 create picturefied
+# → Copy database_id into wrangler.toml [[d1_databases]]
+
+# Create KV namespaces
+npx wrangler kv namespace create SESSIONS
+npx wrangler kv namespace create TAG_INDEX
+npx wrangler kv namespace create FEED_CACHE
+# → Copy each id into wrangler.toml [[kv_namespaces]]
+
+# Apply schema
+npx wrangler d1 execute picturefied --local --file=src/db/schema.sql
+
+# Set secrets
+npx wrangler secret put JWT_SECRET    # any random 32+ char string
+
+# Set GOOGLE_CLIENT_ID in wrangler.toml [vars]
 ```
 
 ---
@@ -71,160 +69,51 @@ pnpm install
 ## 4. Run locally
 
 ```bash
+# Terminal 1 — Worker (http://localhost:8787)
+cd worker && pnpm dev
+
+# Terminal 2 — Frontend (http://localhost:5173)
 pnpm dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open `http://localhost:5173` → **Sign in with Google** → choose a username → done.
 
 ---
 
-## 5. First-time setup
+## 5. Deploy
 
-1. Click **Connect Google Drive** — a Google OAuth popup appears
-2. Grant the app access to your Drive files (**only files it creates** — `drive.file` scope)
-3. Choose a passphrase (12+ characters)
-4. Write down your **24-word recovery phrase** — the only way to recover your account
-5. Confirm one word from your phrase
-6. You're in
-
----
-
-## 6. Upload a photo
-
-Drag and drop a photo onto the upload zone. Watch the status bar:
-
-```
-vacation.jpg   Encrypting…
-vacation.jpg   Uploading…
-vacation.jpg   Done
-```
-
-The file is encrypted on your device before upload. Google Drive receives ciphertext only.
-
----
-
-## 7. Share a photo
-
-1. Hover over a photo → click **Share**
-2. Set an optional expiry
-3. Click **Create share link**
-4. Copy the link — it looks like:
-
-```
-https://yourusername.github.io/picturefied/#/s?t=abc123&k=base64urlkey&d=driveUrl
-```
-
-The `k=` parameter is the decryption key — it's in the URL **fragment** (after `#`), so it's never sent to any server. Send the full URL to your recipient — they can view the photo without an account.
-
-To revoke: go to your shares list and click **Revoke**.
-
----
-
-## Run tests
+### Worker
 
 ```bash
-pnpm test
+cd worker && pnpm deploy
+# Update wrangler.toml API_DOMAIN to your workers.dev URL
 ```
 
-Watch mode:
+### Frontend (GitHub Pages)
 
-```bash
-pnpm test:watch
-```
+Push to `main`. The CI workflow builds and deploys automatically.
 
-Coverage:
-
-```bash
-pnpm test:coverage
-```
+Set these GitHub Actions variables:
+- `VITE_GOOGLE_CLIENT_ID` — your Client ID
+- `VITE_API_URL` — your worker URL
 
 ---
 
-## Deploy to GitHub Pages
-
-### First time
-
-1. Fork this repo on GitHub
-2. Go to **Settings → Pages → Source** → select **GitHub Actions**
-3. Go to **Settings → Variables → Actions** and add:
-   - `VITE_GOOGLE_CLIENT_ID` — your Google OAuth client ID
-   - `VITE_BASE_PATH` — `/picturefied/` (for project sites) or `/` (for user sites)
-4. Push to `main` — the GitHub Actions workflow builds and deploys automatically
-
-### Every push
-
-Every push to `main` runs tests, then deploys. Takes ~2 minutes.
-
----
-
-## Project layout
+## Auth flow
 
 ```
-picturefied/
-├── src/
-│   ├── lib/
-│   │   ├── crypto/       libsodium wrapper (key derivation, file encrypt/decrypt)
-│   │   ├── storage/
-│   │   │   └── gdrive.ts Google Drive adapter (OAuth, upload, download)
-│   │   ├── index-manager.ts  Encrypted index — replaces the database
-│   │   ├── keystore.ts   In-memory Zustand keystore (keys never persisted)
-│   │   └── crypto-worker.ts  Promise wrapper for the Web Worker
-│   ├── workers/
-│   │   └── crypto.worker.ts  Heavy crypto off the main thread
-│   ├── components/
-│   │   ├── Setup/        First-time setup flow
-│   │   ├── Unlock/       Return-visit unlock flow
-│   │   ├── Gallery/      Photo grid + viewer
-│   │   ├── Uploader/     Drag-drop upload with encryption
-│   │   └── Share/        Share modal + public viewer
-│   ├── pages/            Route-level page components
-│   └── __tests__/        Vitest test suite
-├── .github/workflows/    GitHub Actions CI/CD
-├── vite.config.ts        Vite + Vitest config
-└── QUICKSTART.md         This file
+1. Sign in with Google → Google issues ID token (JWT)
+2. Frontend POSTs token to Worker /auth/google
+   → Worker verifies against Google JWKS
+   → Worker upserts user in D1
+   → Worker issues session token → KV (24h TTL)
+3a. Existing user → unlock (if private mode) → gallery
+3b. New user     → choose username → connect Drive → done
 ```
 
----
+## Private mode (optional)
 
-## What lives where
-
-| Data | Location |
-|---|---|
-| Your photos (encrypted) | `picturefied/files/*.enc` in your Drive |
-| Thumbnails (encrypted) | `picturefied/thumbs/*.enc` in your Drive |
-| File index (encrypted) | `picturefied/index.enc` in your Drive |
-| Your keypair (encrypted) | `picturefied/config.enc` in your Drive |
-| Share payloads | `picturefied/shared/*.enc` in your Drive |
-| Source code | GitHub (public) |
-| Your passphrase | Nowhere — never stored |
-| Your encryption keys | Browser memory only — cleared on page close |
-
----
-
-## Security model
-
-- **Zero-knowledge**: Picturefied (the static site) never sees your passphrase or keys
-- **Argon2id**: Key derivation is slow by design (~2-3 seconds) — brute-force resistant
-- **XChaCha20-Poly1305**: File encryption with authentication — tampering is detected
-- **X25519**: FEK wrapping — only your private key can unwrap file keys
-- **URL fragments**: Share keys live in `#fragment` — browsers never send them to servers
-- **`drive.file` scope**: The app can only access files it creates — not your other Drive data
-
----
-
-## Troubleshooting
-
-**OAuth popup blocked**
-→ Allow popups for `localhost:5173` in your browser settings.
-
-**"VITE_GOOGLE_CLIENT_ID is not set"**
-→ Copy `.env.example` to `.env` and set your client ID.
-
-**Argon2id is slow on first unlock (~2-3 seconds)**
-→ This is intentional. Key derivation is designed to be expensive.
-
-**Recovery phrase warning**
-→ Do not skip this step. If you forget your passphrase and don't have the phrase, your encrypted files are permanently unrecoverable.
-
-**Tests fail with module errors**
-→ Run `pnpm install` first. The crypto library requires libsodium which must be installed.
+Private mode adds E2E encryption on top of the social layer. During setup,
+choose a passphrase — a BIP39 recovery phrase is shown. Files are encrypted
+with libsodium before upload. Keys live in memory only; refreshing the page
+requires re-unlocking.
