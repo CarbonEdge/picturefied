@@ -13,19 +13,19 @@ GOOGLE_CLIENT_ID = ""  # also set as GitHub Actions variable
 [[d1_databases]]
 binding = "DB"
 database_name = "picturefied"
-database_id = ""  # set after: wrangler d1 create picturefied
+database_id = "f365751c-dca0-4965-aaf4-b1661cc3a1d1"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = ""  # set after: wrangler kv namespace create SESSIONS
+id = "0662df800d37402fa9cc38256672273c"
 
 [[kv_namespaces]]
 binding = "TAG_INDEX"
-id = ""  # set after: wrangler kv namespace create TAG_INDEX
+id = "7708800aa9df405b9102dd258af61825"
 
 [[kv_namespaces]]
 binding = "FEED_CACHE"
-id = ""  # set after: wrangler kv namespace create FEED_CACHE
+id = "4de9a9ed135e4cbb931ef59fa508259c"
 
 [dev]
 port = 8787
