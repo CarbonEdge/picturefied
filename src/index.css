@@ -87,6 +87,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
 
 .btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { filter: brightness(1.15); }
 
 /* ── Inputs ───────────────────────────────────────────────────────────────── */
 input, textarea {
@@ -190,6 +191,7 @@ a:hover { text-decoration: underline; }
   font-weight: 900;
   padding: 10px;
   text-decoration: none;
+  color: var(--text);
 }
 .sidebar-icon {
   width: 44px;
@@ -335,6 +337,7 @@ a:hover { text-decoration: underline; }
 .public-topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);

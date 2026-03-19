@@ -8,8 +8,10 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <script>
       (function(){
-        var t = localStorage.getItem('pf_theme');
-        if (t) { document.documentElement.setAttribute('data-theme', t); }
+        try {
+          var t = localStorage.getItem('pf_theme');
+          if (t) { document.documentElement.setAttribute('data-theme', t); }
+        } catch(e) {}
       })();
     </script>
   </head>
