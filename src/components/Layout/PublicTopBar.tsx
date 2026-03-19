@@ -7,7 +7,7 @@ export default function PublicTopBar() {
     <div className="public-topbar">
       <a href="#/" className="public-topbar-logo grad-text">Picturefied</a>
       <div style={{ flex: 1 }} />
-      <button className="sidebar-theme" onClick={toggle}>
+      <button className="sidebar-theme" onClick={toggle} aria-label="Toggle theme">
         {theme === 'dark' ? <IconSun /> : <IconMoon />}
       </button>
     </div>
