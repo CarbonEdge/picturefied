@@ -17,3 +17,5 @@ packages/storage/
 # Docker volumes
 postgres-data/
 valkey-data/
+.superpowers/
+.worktrees/
