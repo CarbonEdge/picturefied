@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { FeedPage } from '../lib/types'
+import PublicTopBar from '../components/Layout/PublicTopBar'
 
 const API_URL = import.meta.env['VITE_API_URL'] as string
 
@@ -27,9 +28,10 @@ export default function BrowsePage() {
 
   return (
     <div className="browse-page">
+      <PublicTopBar />
       <h1>#{tag}</h1>
       {feed.items.length === 0 ? (
-        <p>No posts yet for #{tag}</p>
+        <p style={{ padding: '2rem 20px', color: 'var(--muted)' }}>No posts yet for #{tag}</p>
       ) : (
         <div className="feed-grid">
           {feed.items.map((item) => (
@@ -39,9 +41,7 @@ export default function BrowsePage() {
                 <a href={`#/u/${item.authorUsername}`}>@{item.authorUsername}</a>
                 <div className="tags">
                   {item.tags.map((t) => (
-                    <a key={t} href={`#/browse/${t}`}>
-                      #{t}
-                    </a>
+                    <a key={t} href={`#/browse/${t}`}>#{t}</a>
                   ))}
                 </div>
               </div>

@@ -49,35 +49,36 @@ export function UsernameRegistration({ onSuccess, onError }: UsernameRegistratio
       const user = (await response.json()) as StoredUser
       onSuccess(user)
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
-      setError(error.message)
-      onError?.(error)
+      const e = err instanceof Error ? err : new Error(String(err))
+      setError(e.message)
+      onError?.(e)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="username-registration">
-      <h2>Choose your username</h2>
-      <p>Your public handle on Picturefied.</p>
-
-      <input
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value.toLowerCase())}
-        placeholder="username"
-        minLength={3}
-        maxLength={30}
-        required
-        autoFocus
-      />
-
-      {error && <p className="error">{error}</p>}
-
-      <button type="submit" disabled={loading || !isValid}>
-        {loading ? 'Setting up…' : 'Continue'}
-      </button>
-    </form>
+    <div className="center-page">
+      <div className="auth-card">
+        <div className="auth-logo grad-text">Picturefied</div>
+        <p className="auth-tagline">One last step — choose your username.</p>
+        <form onSubmit={handleSubmit} className="form-stack" style={{ width: '100%' }}>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value.toLowerCase())}
+            placeholder="username"
+            minLength={3}
+            maxLength={30}
+            required
+            autoFocus
+          />
+          {error && <p className="error">{error}</p>}
+          <button type="submit" className="btn-primary" disabled={loading || !isValid}>
+            {loading ? 'Setting up…' : 'Continue'}
+          </button>
+        </form>
+      </div>
+    </div>
   )
 }
