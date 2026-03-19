@@ -20,11 +20,9 @@ export function SignIn({ onSuccess, onError }: SignInProps) {
 
   useEffect(() => {
     let mounted = true
-
     loadGoogleIdentityServices()
       .then(() => {
         if (!mounted) return
-
         initializeGoogleSignIn(GOOGLE_CLIENT_ID, async (credential) => {
           try {
             const result = await exchangeGoogleToken(credential, API_URL)
@@ -34,25 +32,22 @@ export function SignIn({ onSuccess, onError }: SignInProps) {
             onError?.(err instanceof Error ? err : new Error(String(err)))
           }
         })
-
-        if (buttonRef.current) {
-          renderSignInButton(buttonRef.current)
-        }
+        if (buttonRef.current) renderSignInButton(buttonRef.current)
       })
       .catch((err: unknown) => {
         onError?.(err instanceof Error ? err : new Error(String(err)))
       })
-
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [onSuccess, onError])
 
   return (
-    <div className="sign-in">
-      <h1>Picturefied</h1>
-      <p>AI-first social meme platform</p>
-      <div ref={buttonRef} />
+    <div className="center-page">
+      <div className="auth-card">
+        <div className="auth-logo grad-text">Picturefied</div>
+        <p className="auth-tagline">Share your world. Keep what's yours.</p>
+        <div style={{ width: '100%', height: 1, background: 'var(--border)' }} />
+        <div ref={buttonRef} style={{ width: '100%' }} />
+      </div>
     </div>
   )
 }
