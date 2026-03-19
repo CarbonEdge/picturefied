@@ -3,27 +3,35 @@ import { useNavigate } from 'react-router-dom'
 import AppShell from '../components/Layout/AppShell'
 import { getSessionToken, clearSession, getStoredUser } from '../lib/session'
 import type { Post } from '../lib/types'
+import { IconGrid, IconFeed } from '../components/Layout/icons'
 
 const API_URL = import.meta.env['VITE_API_URL'] as string
 
 export default function GalleryPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const user = getStoredUser()
 
   useEffect(() => {
     const token = getSessionToken()
-    if (!token) return
+    if (!token) { setLoading(false); return }
     fetch(`${API_URL}/posts/mine`, {
       headers: { authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((data: { posts: Post[] }) => {
         setPosts(data.posts)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Failed to load posts')
+        setLoading(false)
+      })
   }, [])
 
   function handleUploaded(post: Post) {
@@ -65,17 +73,11 @@ export default function GalleryPage() {
         {/* Tabs */}
         <div className="page-tabs">
           <button className="page-tab active">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
+            <IconGrid active />
             My Posts
           </button>
           <button className="page-tab" onClick={() => navigate('/feed')}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-            </svg>
+            <IconFeed />
             Feed
           </button>
         </div>
@@ -83,6 +85,8 @@ export default function GalleryPage() {
         {/* Grid */}
         {loading ? (
           <p className="muted" style={{ textAlign: 'center', padding: '3rem' }}>Loading…</p>
+        ) : error ? (
+          <p className="error" style={{ textAlign: 'center', padding: '3rem' }}>{error}</p>
         ) : posts.length === 0 ? (
           <div className="empty-state">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--border)" strokeWidth="1.5">
