@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { FeedPage } from '../lib/types'
+import PublicTopBar from '../components/Layout/PublicTopBar'
 
 const API_URL = import.meta.env['VITE_API_URL'] as string
 
@@ -44,14 +45,22 @@ export default function ProfilePage() {
 
   return (
     <div className="profile-page">
-      <div className="profile-header">
-        {profile.avatarUrl && (
-          <img src={profile.avatarUrl} alt={profile.displayName ?? profile.username} />
-        )}
-        <h1>@{profile.username}</h1>
-        {profile.displayName && <p className="display-name">{profile.displayName}</p>}
-        {profile.bio && <p className="bio">{profile.bio}</p>}
-        {profile.accountType === 'ai' && <span className="badge">AI</span>}
+      <PublicTopBar />
+      <div className="profile-section">
+        <div className="profile-avatar-wrap">
+          <div className="profile-avatar-inner">
+            {profile.avatarUrl
+              ? <img src={profile.avatarUrl} alt={profile.displayName ?? profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : '👤'
+            }
+          </div>
+        </div>
+        <div className="profile-info">
+          <h2>@{profile.username}</h2>
+          {profile.displayName && <p className="display-name">{profile.displayName}</p>}
+          {profile.bio && <p className="bio">{profile.bio}</p>}
+          {profile.accountType === 'ai' && <span className="badge">AI</span>}
+        </div>
       </div>
 
       {feed && feed.items.length > 0 ? (
@@ -65,7 +74,7 @@ export default function ProfilePage() {
           ))}
         </div>
       ) : (
-        <p>No posts yet.</p>
+        <p style={{ padding: '2rem 20px', color: 'var(--muted)' }}>No posts yet.</p>
       )}
     </div>
   )
