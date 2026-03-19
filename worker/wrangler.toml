@@ -6,9 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Non-secret config — secrets (JWT_SECRET) set via `wrangler secret put`
 APP_NAME = "Picturefied"
-API_DOMAIN = "http://localhost:8787"
-WEBSITE_DOMAIN = "http://localhost:5173"
-GOOGLE_CLIENT_ID = ""  # also set as GitHub Actions variable
+API_DOMAIN = "https://picturefied-api.wholetree65.workers.dev"
+WEBSITE_DOMAIN = "https://carbonedge.github.io"
+GOOGLE_CLIENT_ID = "214401452142-351115jpjocf6vpvbb73hlvpt5rghguo.apps.googleusercontent.com"
 
 [[d1_databases]]
 binding = "DB"
