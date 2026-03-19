@@ -16,6 +16,7 @@ import { getCryptoWorker } from '../../lib/crypto-worker'
 import { useKeystore } from '../../lib/keystore'
 import { randomId } from '../../lib/index-manager'
 import type { FileEntry } from '../../lib/index-manager'
+import type { Post } from '../../lib/types'
 
 interface UploadState {
   name: string
@@ -24,7 +25,7 @@ interface UploadState {
 }
 
 interface UploaderProps {
-  onUploaded?: (entry: FileEntry) => void
+  onUploaded?: (post: Post) => void
 }
 
 export default function Uploader({ onUploaded }: UploaderProps) {
@@ -106,7 +107,15 @@ export default function Uploader({ onUploaded }: UploaderProps) {
       await index!.addFile(entry)
 
       updateItem(file.name, { progress: 'done' })
-      onUploaded?.(entry)
+      onUploaded?.({
+        id: entry.id,
+        driveFileId: entry.driveFileId,
+        drivePublicUrl: null,
+        title: entry.name,
+        tags: [],
+        isPublic: false,
+        createdAt: Date.now(),
+      })
     } catch (e) {
       updateItem(file.name, {
         progress: 'error',
@@ -142,7 +151,7 @@ export default function Uploader({ onUploaded }: UploaderProps) {
           textAlign: 'center',
           cursor: 'pointer',
           transition: 'border-color 0.15s',
-          background: dragging ? 'rgba(124,106,245,0.05)' : 'transparent',
+          background: dragging ? 'rgba(156,10,161,0.05)' : 'transparent',
         }}
       >
         <p style={{ marginBottom: '0.5rem' }}>Drag photos here or click to browse</p>

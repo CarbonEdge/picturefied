@@ -8,6 +8,7 @@ import Gallery from '../components/Gallery/Gallery'
 import Uploader from '../components/Uploader/Uploader'
 import { useKeystore } from '../lib/keystore'
 import type { FileEntry } from '../lib/index-manager'
+import type { Post } from '../lib/types'
 
 export default function GalleryPage() {
   const [files, setFiles] = useState<FileEntry[]>([])
@@ -25,8 +26,11 @@ export default function GalleryPage() {
     })
   }, [index])
 
-  function handleUploaded(entry: FileEntry) {
-    setFiles((prev) => [entry, ...prev])
+  function handleUploaded(_post: Post) {
+    // Re-fetch the full file list so Gallery shows the new FileEntry
+    if (index) {
+      index.listFiles().then((f) => setFiles(f))
+    }
   }
 
   function handleDeleted(id: string) {
