@@ -153,6 +153,49 @@ export class DriveAdapter {
     return this.json<DriveFile>(uploadRes)
   }
 
+  /** Upload an image file preserving its MIME type (so Drive can render it). */
+  async uploadImage(
+    name: string,
+    bytes: Uint8Array,
+    mimeType: string,
+    parentId: string,
+  ): Promise<DriveFile> {
+    const sessionRes = await fetch(`${UPLOAD_API}/files?uploadType=resumable`, {
+      method: 'POST',
+      headers: this.headers({
+        'Content-Type': 'application/json',
+        'X-Upload-Content-Type': mimeType,
+        'X-Upload-Content-Length': bytes.length.toString(),
+      }),
+      body: JSON.stringify({ name, parents: [parentId] }),
+    })
+    if (!sessionRes.ok) {
+      const text = await sessionRes.text()
+      throw new DriveError(sessionRes.status, text)
+    }
+    const uploadUrl = sessionRes.headers.get('Location')!
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': mimeType },
+      body: new Blob([bytes as Uint8Array<ArrayBuffer>], { type: mimeType }),
+    })
+    return this.json<DriveFile>(uploadRes)
+  }
+
+  /** Grant anyone-with-link read access and return a direct view URL. */
+  async makePublic(fileId: string): Promise<string> {
+    const res = await fetch(`${DRIVE_API}/files/${fileId}/permissions`, {
+      method: 'POST',
+      headers: this.headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new DriveError(res.status, text)
+    }
+    return `https://drive.google.com/uc?export=view&id=${fileId}`
+  }
+
   // ─── Download ───────────────────────────────────────────────────────────────
 
   async download(fileId: string): Promise<Uint8Array> {

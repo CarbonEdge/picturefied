@@ -1,9 +1,6 @@
 import { createElement } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useKeystore } from './lib/keystore'
 import { isAuthenticated } from './lib/session'
-import SetupPage from './pages/SetupPage'
-import UnlockPage from './pages/UnlockPage'
 import GalleryPage from './pages/GalleryPage'
 import SharePage from './pages/SharePage'
 import AuthPage from './pages/AuthPage'
@@ -13,11 +10,9 @@ import FeedPage from './pages/FeedPage'
 
 /**
  * Routing:
- *  /            → redirect based on auth + unlock state
+ *  /            → redirect based on auth state
  *  /auth        → Google Sign-In (and username registration for new users)
- *  /setup       → connect Google Drive + optional passphrase (private mode)
- *  /unlock      → re-enter passphrase to unlock keys (returning private users)
- *  /gallery     → main gallery (requires unlocked keystore)
+ *  /gallery     → main gallery (requires session)
  *  /browse/:tag → public tag feed (no auth required)
  *  /u/:username → public profile (no auth required)
  *  /feed        → following feed (requires session)
@@ -38,8 +33,6 @@ export default function App() {
       <R>
         <Rt path="/" element={createElement(RootRedirect)} />
         <Rt path="/auth" element={createElement(AuthPage)} />
-        <Rt path="/setup" element={createElement(SetupPage)} />
-        <Rt path="/unlock" element={createElement(UnlockPage)} />
         <Rt path="/gallery" element={createElement(ProtectedGallery)} />
         <Rt path="/browse/:tag" element={createElement(BrowsePage)} />
         <Rt path="/u/:username" element={createElement(ProfilePage)} />
@@ -52,14 +45,11 @@ export default function App() {
 }
 
 function RootRedirect() {
-  const isUnlocked = useKeystore((s) => s.isUnlocked())
-  if (isUnlocked) return createElement(Navigate, { to: '/gallery', replace: true })
-  if (isAuthenticated()) return createElement(Navigate, { to: '/unlock', replace: true })
+  if (isAuthenticated()) return createElement(Navigate, { to: '/gallery', replace: true })
   return createElement(Navigate, { to: '/auth', replace: true })
 }
 
 function ProtectedGallery() {
-  const isUnlocked = useKeystore((s) => s.isUnlocked())
-  if (!isUnlocked) return createElement(Navigate, { to: '/', replace: true })
+  if (!isAuthenticated()) return createElement(Navigate, { to: '/', replace: true })
   return createElement(GalleryPage)
 }

@@ -112,6 +112,46 @@ postRoutes.post('/', async (c) => {
   return c.json({ id, ok: true }, 201)
 })
 
+// GET /posts/mine — authenticated user's own posts (public + private)
+postRoutes.get('/mine', async (c) => {
+  const auth = await resolveAuth(c.env, c.req.header('authorization'))
+  if (!auth) return c.json({ error: 'Unauthorized' }, 401)
+
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10), 100)
+
+  interface PostRow {
+    id: string
+    drive_file_id: string
+    drive_public_url: string | null
+    title: string | null
+    tags: string
+    is_public: number
+    created_at: number
+  }
+
+  const { results } = await c.env.DB.prepare(`
+    SELECT id, drive_file_id, drive_public_url, title, tags, is_public, created_at
+    FROM posts
+    WHERE author_id = ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `)
+    .bind(auth.userId, limit)
+    .all<PostRow>()
+
+  return c.json({
+    posts: results.map((r) => ({
+      id: r.id,
+      driveFileId: r.drive_file_id,
+      drivePublicUrl: r.drive_public_url,
+      title: r.title,
+      tags: JSON.parse(r.tags) as string[],
+      isPublic: r.is_public === 1,
+      createdAt: r.created_at,
+    })),
+  })
+})
+
 // GET /posts/:id — single post
 postRoutes.get('/:id', async (c) => {
   const id = c.req.param('id')

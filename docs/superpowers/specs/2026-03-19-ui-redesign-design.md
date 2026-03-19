@@ -22,8 +22,8 @@ Used on: logo text, active nav icons, upload button, avatar ring, primary CTA bu
 --border:       #efefef
 --text:         #111111
 --muted:        #8e8e8e
---accent:       #bc1888      (end of gradient — single solid for focus rings etc.)
---danger:       #e05a5a
+--accent:       #9c0aa1      (end of gradient — single solid for focus rings etc.)
+--danger:       #611717
 --radius:       8px
 ```
 
@@ -33,7 +33,7 @@ Used on: logo text, active nav icons, upload button, avatar ring, primary CTA bu
 --surface:      #141414
 --border:       #2a2a2a
 --text:         #f0f0f0
---muted:        #888888
+--muted:        #b1a505
 ```
 
 **Typography:** System font stack. Base 15px. Logo uses `font-weight: 800`.

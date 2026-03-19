@@ -15,14 +15,14 @@ export default function AuthPage() {
     if (isNewUser) {
       setStep('username')
     } else {
-      navigate('/unlock')
+      navigate('/gallery')
     }
   }
 
   function handleUsernameSuccess(user: StoredUser) {
     const token = localStorage.getItem('pf_session')
     if (token) saveSession(token, user)
-    navigate('/setup')
+    navigate('/gallery')
   }
 
   if (step === 'username') {
