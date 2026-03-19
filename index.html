@@ -6,6 +6,12 @@
     <meta name="description" content="Picturefied — private photo sharing. Your files, encrypted, on your storage." />
     <title>Picturefied</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      (function(){
+        var t = localStorage.getItem('pf_theme');
+        if (t) { document.documentElement.setAttribute('data-theme', t); }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
